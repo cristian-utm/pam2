@@ -6,19 +6,16 @@ import '../models/assignment_item.dart';
 class XmlStorageService {
   static const String _fileName = 'assignments.xml';
 
-  // Get the file path for storing assignments
   static Future<String> _getFilePath() async {
     final directory = await getApplicationDocumentsDirectory();
     return '${directory.path}/$_fileName';
   }
 
-  // Save assignments to XML file
   static Future<void> saveAssignmentsToXml(List<AssignmentItem> assignments) async {
     try {
       final filePath = await _getFilePath();
       final file = File(filePath);
 
-      // Create XML document
       final builder = XmlBuilder();
       builder.processing('xml', 'version="1.0" encoding="UTF-8"');
       builder.element('assignments', nest: () {
@@ -44,7 +41,6 @@ class XmlStorageService {
     }
   }
 
-  // Load assignments from XML file
   static Future<List<AssignmentItem>> loadAssignmentsFromXml() async {
     try {
       final filePath = await _getFilePath();

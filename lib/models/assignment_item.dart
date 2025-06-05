@@ -19,7 +19,6 @@ class AssignmentItem {
     this.notificationId,
   });
 
-  // Create a copy of the assignment with updated fields
   AssignmentItem copyWith({
     String? id,
     String? title,
@@ -40,7 +39,6 @@ class AssignmentItem {
     );
   }
 
-  // Convert AssignmentItem to XML element
   XmlElement toXml() {
     final builder = XmlBuilder();
     builder.element('assignment', nest: () {
@@ -57,7 +55,6 @@ class AssignmentItem {
     return builder.buildDocument().rootElement;
   }
 
-  // Create AssignmentItem from XML element
   factory AssignmentItem.fromXml(XmlElement element) {
     return AssignmentItem(
       id: element.findElements('id').first.innerText,
