@@ -23,7 +23,9 @@ class _MainScreenState extends State<MainScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
   bool _showAllAssignments = false;
-  RangeSelectionMode _rangeSelectionMode = RangeSelectionMode.toggledOff;
+  // Always in range selection mode - no toggle needed
+  DateTime? _lastClickedDay;
+  DateTime? _lastClickTime;
 
   @override
   void initState() {
@@ -134,23 +136,33 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       _rangeStart = null;
       _rangeEnd = null;
-      _rangeSelectionMode = RangeSelectionMode.toggledOff;
-    });
-  }
-
-  // Toggle range selection mode
-  void _toggleRangeSelection() {
-    setState(() {
-      if (_rangeSelectionMode == RangeSelectionMode.toggledOff) {
-        _rangeSelectionMode = RangeSelectionMode.toggledOn;
-        _showAllAssignments = false;
-        _clearRangeSelection();
-      } else {
-        _rangeSelectionMode = RangeSelectionMode.toggledOff;
-        _clearRangeSelection();
-      }
+      _lastClickedDay = null;
+      _lastClickTime = null;
     });
     _filterAssignments();
+  }
+
+
+
+  // Get header text based on current view mode
+  String _getHeaderText() {
+    if (_showAllAssignments) {
+      return 'All Assignments';
+    } else if (_rangeStart != null && _rangeEnd != null) {
+      if (isSameDay(_rangeStart!, _rangeEnd!)) {
+        // Single day selected
+        return 'Assignments for ${DateFormat('EEEE, MMMM d, y').format(_rangeStart!)}';
+      } else {
+        // Date range selected
+        final startDate = DateFormat('MMM d').format(_rangeStart!);
+        final endDate = DateFormat('MMM d, y').format(_rangeEnd!);
+        return 'Assignments: $startDate - $endDate';
+      }
+    } else if (_rangeStart != null) {
+      return 'Select end date (started: ${DateFormat('MMM d').format(_rangeStart!)})';
+    } else {
+      return 'Select dates on calendar to filter assignments';
+    }
   }
 
   // Navigate to add/edit assignment screen
@@ -257,209 +269,514 @@ class _MainScreenState extends State<MainScreen> {
       appBar: AppBar(
         title: const Text('Student Assignment Planner'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          // Quick stats in app bar
+          if (_filteredAssignments.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_filteredAssignments.length}',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Search bar
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: const InputDecoration(
-                      labelText: 'Search assignments...',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                
-                // Calendar
-                TableCalendar<AssignmentItem>(
-                  firstDay: DateTime.utc(2020, 1, 1),
-                  lastDay: DateTime.utc(2030, 12, 31),
-                  focusedDay: _focusedDate,
-                  selectedDayPredicate: (day) => isSameDay(_selectedDate, day),
-                  rangeStartDay: _rangeStart,
-                  rangeEndDay: _rangeEnd,
-                  rangeSelectionMode: _rangeSelectionMode,
-                  eventLoader: _getAssignmentsForDate,
-                  startingDayOfWeek: StartingDayOfWeek.monday,
-                  calendarStyle: CalendarStyle(
-                    outsideDaysVisible: false,
-                    markerDecoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    rangeHighlightColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                    rangeStartDecoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    rangeEndDecoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  headerStyle: const HeaderStyle(
-                    formatButtonVisible: false,
-                    titleCentered: true,
-                  ),
-                  onDaySelected: (selectedDay, focusedDay) {
-                    if (_rangeSelectionMode == RangeSelectionMode.toggledOff) {
-                      setState(() {
-                        _selectedDate = selectedDay;
-                        _focusedDate = focusedDay;
-                        _showAllAssignments = false;
-                      });
-                      _filterAssignments();
-                    }
-                  },
-                  onRangeSelected: (start, end, focusedDay) {
-                    setState(() {
-                      _selectedDate = focusedDay;
-                      _focusedDate = focusedDay;
-                      _rangeStart = start;
-                      _rangeEnd = end;
-                      _showAllAssignments = false;
-                    });
-                    _filterAssignments();
-                  },
-                ),
-                
-                // Control buttons
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: Row(
+                // Compact header with search and controls
+                Container(
+                  color: Theme.of(context).colorScheme.surface,
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _toggleShowAll,
-                          icon: Icon(_showAllAssignments ? Icons.calendar_today : Icons.view_list),
-                          label: Text(_showAllAssignments ? 'Show Calendar' : 'Show All'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _showAllAssignments 
-                                ? Theme.of(context).colorScheme.primary 
-                                : Theme.of(context).colorScheme.surface,
-                            foregroundColor: _showAllAssignments 
-                                ? Theme.of(context).colorScheme.onPrimary 
-                                : Theme.of(context).colorScheme.onSurface,
+                      // Search bar - more compact
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 8.0),
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            labelText: 'Search assignments...',
+                            prefixIcon: const Icon(Icons.search),
+                            border: const OutlineInputBorder(),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            isDense: true,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _toggleRangeSelection,
-                          icon: Icon(_rangeSelectionMode == RangeSelectionMode.toggledOn 
-                              ? Icons.date_range 
-                              : Icons.calendar_view_day),
-                          label: Text(_rangeSelectionMode == RangeSelectionMode.toggledOn 
-                              ? 'Single Day' 
-                              : 'Date Range'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _rangeSelectionMode == RangeSelectionMode.toggledOn 
-                                ? Theme.of(context).colorScheme.secondary 
-                                : Theme.of(context).colorScheme.surface,
-                            foregroundColor: _rangeSelectionMode == RangeSelectionMode.toggledOn 
-                                ? Theme.of(context).colorScheme.onSecondary 
-                                : Theme.of(context).colorScheme.onSurface,
-                          ),
+                      
+                      // Control buttons - more compact
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _toggleShowAll,
+                                icon: Icon(_showAllAssignments ? Icons.calendar_today : Icons.view_list, size: 18),
+                                label: Text(_showAllAssignments ? 'Show Calendar' : 'Show All'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _showAllAssignments 
+                                      ? Theme.of(context).colorScheme.primary 
+                                      : Theme.of(context).colorScheme.surface,
+                                  foregroundColor: _showAllAssignments 
+                                      ? Theme.of(context).colorScheme.onPrimary 
+                                      : Theme.of(context).colorScheme.onSurface,
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _clearRangeSelection,
+                                icon: const Icon(Icons.clear, size: 18),
+                                label: const Text('Clear Selection'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: (_rangeStart != null || _rangeEnd != null)
+                                      ? Theme.of(context).colorScheme.errorContainer
+                                      : Theme.of(context).colorScheme.surface,
+                                  foregroundColor: (_rangeStart != null || _rangeEnd != null)
+                                      ? Theme.of(context).colorScheme.onErrorContainer
+                                      : Theme.of(context).colorScheme.onSurface,
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
                 
-                const Divider(),
+                // Calendar - only show when not in "Show All" mode
+                if (!_showAllAssignments) ...[
+                  Container(
+                    color: Theme.of(context).colorScheme.surface,
+                    child: TableCalendar<AssignmentItem>(
+                      firstDay: DateTime.utc(2020, 1, 1),
+                      lastDay: DateTime.utc(2030, 12, 31),
+                      focusedDay: _focusedDate,
+                      selectedDayPredicate: (day) => isSameDay(_selectedDate, day),
+                      rangeStartDay: _rangeStart,
+                      rangeEndDay: _rangeEnd,
+                      rangeSelectionMode: RangeSelectionMode.toggledOn,
+                      eventLoader: _getAssignmentsForDate,
+                      startingDayOfWeek: StartingDayOfWeek.monday,
+                      calendarStyle: CalendarStyle(
+                        outsideDaysVisible: false,
+                        markerDecoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        rangeHighlightColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                        rangeStartDecoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        rangeEndDecoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      headerStyle: const HeaderStyle(
+                        formatButtonVisible: false,
+                        titleCentered: true,
+                      ),
+                      onDaySelected: (selectedDay, focusedDay) {
+                        final now = DateTime.now();
+                        final isDoubleClick = _lastClickedDay != null &&
+                            isSameDay(_lastClickedDay!, selectedDay) &&
+                            _lastClickTime != null &&
+                            now.difference(_lastClickTime!).inMilliseconds < 500;
+
+                        // Always in range selection mode
+                        setState(() {
+                          _showAllAssignments = false; // Disable show all when clicking calendar
+                          _selectedDate = selectedDay;
+                          _focusedDate = focusedDay;
+                        });
+
+                        if (isDoubleClick) {
+                          // Double click - select only this day
+                          setState(() {
+                            _rangeStart = selectedDay;
+                            _rangeEnd = selectedDay;
+                          });
+                          _filterAssignments();
+                        } else if (_rangeStart == null) {
+                          // First click - start range
+                          setState(() {
+                            _rangeStart = selectedDay;
+                            _rangeEnd = null;
+                          });
+                        } else if (_rangeEnd == null) {
+                          // Second click - complete range
+                          final start = _rangeStart!;
+                          final end = selectedDay;
+                          setState(() {
+                            _rangeStart = start.isBefore(end) ? start : end;
+                            _rangeEnd = start.isBefore(end) ? end : start;
+                          });
+                          _filterAssignments();
+                        } else {
+                          // Range already selected - start new range
+                          setState(() {
+                            _rangeStart = selectedDay;
+                            _rangeEnd = null;
+                          });
+                        }
+
+                        // Update last click tracking
+                        _lastClickedDay = selectedDay;
+                        _lastClickTime = now;
+                      },
+                      onRangeSelected: null,
+                    ),
+                  ),
+                  
+                  // Help text
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    child: Text(
+                      _rangeStart == null 
+                          ? 'Tap a date to start selecting • Double-tap for single day'
+                          : _rangeEnd == null
+                              ? 'Tap another date to complete range • Double-tap to select single day'
+                              : 'Range selected • Tap new date to start over',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
                 
-                // Dynamic header based on current view mode
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
+                // Assignments section header
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 8.0),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                  ),
                   child: Row(
                     children: [
+                      Icon(
+                        Icons.assignment,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _getHeaderText(),
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                       ),
-                      if (_filteredAssignments.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '${_filteredAssignments.length}',
-                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onPrimaryContainer,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
                     ],
                   ),
                 ),
                 
-                // Assignments list
+                // Assignments list - Enhanced for better scrolling and UX
                 Expanded(
                   child: _filteredAssignments.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No assignments for this date',
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.assignment_outlined,
+                                size: 80,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 24),
+                              Text(
+                                _showAllAssignments 
+                                    ? 'No assignments found' 
+                                    : 'No assignments for this period',
+                                style: TextStyle(
+                                  fontSize: 18, 
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Tap the + button to add your first assignment',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
                           ),
                         )
-                      : ListView.builder(
-                          itemCount: _filteredAssignments.length,
-                          itemBuilder: (context, index) {
-                            final assignment = _filteredAssignments[index];
-                            return Card(
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 16.0,
-                                vertical: 4.0,
-                              ),
-                              child: ListTile(
-                                leading: Checkbox(
-                                  value: assignment.isCompleted,
-                                  onChanged: (_) => _toggleCompletion(assignment),
+                      : RefreshIndicator(
+                          onRefresh: () async {
+                            await _loadAssignments();
+                          },
+                          child: ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: _filteredAssignments.length,
+                            itemBuilder: (context, index) {
+                              final assignment = _filteredAssignments[index];
+                              final isOverdue = assignment.deadline.isBefore(DateTime.now()) && !assignment.isCompleted;
+                              final isDueToday = DateTime.now().difference(assignment.deadline).inDays == 0;
+                              
+                              return Container(
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 4.0,
+                                  vertical: 4.0,
                                 ),
-                                title: Text(
-                                  assignment.title,
-                                  style: TextStyle(
-                                    decoration: assignment.isCompleted
-                                        ? TextDecoration.lineThrough
-                                        : null,
+                                child: Card(
+                                  elevation: assignment.isCompleted ? 2 : 4,
+                                  shadowColor: Theme.of(context).colorScheme.shadow.withOpacity(0.2),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    side: BorderSide(
+                                      color: isOverdue 
+                                          ? Colors.red.withOpacity(0.4)
+                                          : isDueToday 
+                                              ? Colors.orange.withOpacity(0.4)
+                                              : assignment.isCompleted
+                                                  ? Colors.green.withOpacity(0.3)
+                                                  : Colors.transparent,
+                                      width: isOverdue || isDueToday || assignment.isCompleted ? 2 : 0,
+                                    ),
+                                  ),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(16),
+                                    onTap: () => _navigateToAddEditScreen(assignment),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // Header row with checkbox, title, and actions
+                                          Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              // Custom styled checkbox
+                                              Container(
+                                                margin: const EdgeInsets.only(top: 2),
+                                                child: Transform.scale(
+                                                  scale: 1.2,
+                                                  child: Checkbox(
+                                                    value: assignment.isCompleted,
+                                                    onChanged: (_) => _toggleCompletion(assignment),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    activeColor: Colors.green,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              // Title and subject
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      assignment.title,
+                                                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                                        decoration: assignment.isCompleted
+                                                            ? TextDecoration.lineThrough
+                                                            : null,
+                                                        color: assignment.isCompleted
+                                                            ? Colors.grey[600]
+                                                            : Theme.of(context).colorScheme.onSurface,
+                                                        fontWeight: FontWeight.w600,
+                                                        fontSize: 18,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: Theme.of(context).colorScheme.secondaryContainer,
+                                                        borderRadius: BorderRadius.circular(12),
+                                                      ),
+                                                      child: Text(
+                                                        assignment.subject,
+                                                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                                          color: Theme.of(context).colorScheme.onSecondaryContainer,
+                                                          fontWeight: FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              // Delete button
+                                              Container(
+                                                margin: const EdgeInsets.only(left: 8),
+                                                child: IconButton(
+                                                  icon: const Icon(Icons.delete_outline),
+                                                  color: Colors.red[400],
+                                                  onPressed: () => _showDeleteConfirmation(assignment),
+                                                  tooltip: 'Delete assignment',
+                                                  iconSize: 22,
+                                                ),
+                                              ),
+                                            ],
+                                        ),
+                                        // Description section
+                                        if (assignment.description.isNotEmpty) ...[
+                                          const SizedBox(height: 8),
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              assignment.description,
+                                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                height: 1.4,
+                                              ),
+                                              maxLines: 3,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                        
+                                        const SizedBox(height: 8),
+                                        
+                                        // Deadline section with enhanced styling
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: isOverdue 
+                                                ? Colors.red.withOpacity(0.1)
+                                                : isDueToday 
+                                                    ? Colors.orange.withOpacity(0.1)
+                                                    : assignment.isCompleted
+                                                        ? Colors.green.withOpacity(0.1)
+                                                        : Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: isOverdue 
+                                                  ? Colors.red.withOpacity(0.3)
+                                                  : isDueToday 
+                                                      ? Colors.orange.withOpacity(0.3)
+                                                      : assignment.isCompleted
+                                                          ? Colors.green.withOpacity(0.3)
+                                                          : Colors.transparent,
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                assignment.isCompleted 
+                                                    ? Icons.check_circle
+                                                    : Icons.schedule,
+                                                size: 18,
+                                                color: isOverdue 
+                                                    ? Colors.red 
+                                                    : isDueToday 
+                                                        ? Colors.orange 
+                                                        : assignment.isCompleted
+                                                            ? Colors.green
+                                                            : Theme.of(context).colorScheme.primary,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  assignment.isCompleted
+                                                      ? 'Completed • ${DateFormat('MMM d, h:mm a').format(assignment.deadline)}'
+                                                      : 'Due ${DateFormat('MMM d, h:mm a').format(assignment.deadline)}',
+                                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                    color: isOverdue 
+                                                        ? Colors.red 
+                                                        : isDueToday 
+                                                            ? Colors.orange 
+                                                            : assignment.isCompleted
+                                                                ? Colors.green
+                                                                : Theme.of(context).colorScheme.onSurface,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (isOverdue)
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.red,
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: Text(
+                                                    'OVERDUE',
+                                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 10,
+                                                    ),
+                                                  ),
+                                                ),
+                                              if (isDueToday && !isOverdue)
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.orange,
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: Text(
+                                                    'TODAY',
+                                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 10,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Subject: ${assignment.subject}'),
-                                    Text(
-                                      'Due: ${DateFormat('h:mm a').format(assignment.deadline)}',
-                                      style: TextStyle(
-                                        color: assignment.deadline.isBefore(DateTime.now())
-                                            ? Colors.red
-                                            : null,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () => _showDeleteConfirmation(assignment),
-                                ),
-                                onTap: () => _navigateToAddEditScreen(assignment),
                               ),
                             );
                           },
                         ),
+                      ),
                 ),
               ],
             ),

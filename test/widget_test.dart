@@ -11,20 +11,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pam_lab2/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('Assignment planner app smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const StudentAssignmentPlannerApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify that the app loads with the main screen.
+    expect(find.text('Assignment Planner'), findsOneWidget);
+    expect(find.byIcon(Icons.add), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
+    // Tap the '+' icon to navigate to add assignment screen.
     await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that we navigated to the add assignment screen.
+    expect(find.text('Add Assignment'), findsOneWidget);
   });
 }
