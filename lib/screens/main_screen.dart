@@ -23,7 +23,6 @@ class _MainScreenState extends State<MainScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
   bool _showAllAssignments = false;
-  // Always in range selection mode - no toggle needed
   DateTime? _lastClickedDay;
   DateTime? _lastClickTime;
 
@@ -65,7 +64,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // Filter assignments based on selected date/range and search term
   void _filterAssignments() {
     final searchTerm = _searchController.text.toLowerCase();
     
@@ -81,14 +79,12 @@ class _MainScreenState extends State<MainScreen> {
         
         if (!_showAllAssignments) {
           if (_rangeStart != null && _rangeEnd != null) {
-            // Range selection mode
             final rangeStartOnly = DateTime(_rangeStart!.year, _rangeStart!.month, _rangeStart!.day);
             final rangeEndOnly = DateTime(_rangeEnd!.year, _rangeEnd!.month, _rangeEnd!.day);
             matchesDate = assignmentDateOnly.isAtSameMomentAs(rangeStartOnly) ||
                          assignmentDateOnly.isAtSameMomentAs(rangeEndOnly) ||
                          (assignmentDateOnly.isAfter(rangeStartOnly) && assignmentDateOnly.isBefore(rangeEndOnly));
           } else {
-            // Single date selection mode
             final selectedDateOnly = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
             matchesDate = assignmentDateOnly.isAtSameMomentAs(selectedDateOnly);
           }
@@ -102,12 +98,10 @@ class _MainScreenState extends State<MainScreen> {
         return matchesDate && matchesSearch;
       }).toList();
       
-      // Sort by deadline time in descending order (latest first)
       _filteredAssignments.sort((a, b) => b.deadline.compareTo(a.deadline));
     });
   }
 
-  // Get assignments for a specific date (for calendar markers)
   List<AssignmentItem> _getAssignmentsForDate(DateTime date) {
     final dateOnly = DateTime(date.year, date.month, date.day);
     return _allAssignments.where((assignment) {
@@ -131,7 +125,6 @@ class _MainScreenState extends State<MainScreen> {
     _filterAssignments();
   }
 
-  // Clear range selection
   void _clearRangeSelection() {
     setState(() {
       _rangeStart = null;
@@ -144,16 +137,13 @@ class _MainScreenState extends State<MainScreen> {
 
 
 
-  // Get header text based on current view mode
   String _getHeaderText() {
     if (_showAllAssignments) {
       return 'All Assignments';
     } else if (_rangeStart != null && _rangeEnd != null) {
       if (isSameDay(_rangeStart!, _rangeEnd!)) {
-        // Single day selected
         return 'Assignments for ${DateFormat('EEEE, MMMM d, y').format(_rangeStart!)}';
       } else {
-        // Date range selected
         final startDate = DateFormat('MMM d').format(_rangeStart!);
         final endDate = DateFormat('MMM d, y').format(_rangeEnd!);
         return 'Assignments: $startDate - $endDate';
@@ -165,7 +155,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // Navigate to add/edit assignment screen
   Future<void> _navigateToAddEditScreen([AssignmentItem? assignment]) async {
     final result = await Navigator.push(
       context,
@@ -179,18 +168,13 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // Delete an assignment
   Future<void> _deleteAssignment(AssignmentItem assignment) async {
     try {
-      // Cancel notification if exists
       if (assignment.notificationId != null) {
         await AssignmentNotificationService.cancelNotification(assignment.notificationId);
       }
       
-      // Remove from list
       _allAssignments.removeWhere((item) => item.id == assignment.id);
-      
-      // Save to XML
       await XmlStorageService.saveAssignmentsToXml(_allAssignments);
       
       _filterAssignments();
@@ -209,23 +193,19 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // Toggle assignment completion status
   Future<void> _toggleCompletion(AssignmentItem assignment) async {
     try {
       final updatedAssignment = assignment.copyWith(isCompleted: !assignment.isCompleted);
       
-      // Cancel notification if marking as completed
       if (updatedAssignment.isCompleted && assignment.notificationId != null) {
         await AssignmentNotificationService.cancelNotification(assignment.notificationId);
       }
       
-      // Update in list
       final index = _allAssignments.indexWhere((item) => item.id == assignment.id);
       if (index != -1) {
         _allAssignments[index] = updatedAssignment;
       }
       
-      // Save to XML
       await XmlStorageService.saveAssignmentsToXml(_allAssignments);
       
       _filterAssignments();
@@ -238,7 +218,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // Show delete confirmation dialog
   Future<void> _showDeleteConfirmation(AssignmentItem assignment) async {
     final confirmed = await showDialog<bool>(
       context: context,

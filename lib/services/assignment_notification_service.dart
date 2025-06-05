@@ -8,16 +8,12 @@ class AssignmentNotificationService {
       FlutterLocalNotificationsPlugin();
   static int _notificationIdCounter = 1000;
 
-  // Initialize the notification service
   static Future<void> initialize() async {
-    // Initialize timezone data
     tz.initializeTimeZones();
 
-    // Android initialization settings
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // iOS initialization settings
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -25,7 +21,6 @@ class AssignmentNotificationService {
       requestSoundPermission: true,
     );
 
-    // macOS initialization settings
     const DarwinInitializationSettings initializationSettingsMacOS =
         DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -45,11 +40,9 @@ class AssignmentNotificationService {
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
-    // Request permissions for iOS/macOS
     await _requestPermissions();
   }
 
-  // Request notification permissions
   static Future<void> _requestPermissions() async {
     await _notifications
         .resolvePlatformSpecificImplementation<
@@ -70,26 +63,19 @@ class AssignmentNotificationService {
         );
   }
 
-  // Handle notification tap
   static void _onNotificationTapped(NotificationResponse response) {
-    // Handle notification tap - could navigate to specific assignment
     print('Notification tapped: ${response.payload}');
   }
 
-  // Schedule a notification for an assignment
   static Future<int?> scheduleNotification(AssignmentItem assignment) async {
-    // Don't schedule if assignment is completed or deadline is in the past
     if (assignment.isCompleted || assignment.deadline.isBefore(DateTime.now())) {
       return null;
     }
 
     try {
       final notificationId = _notificationIdCounter++;
-      
-      // Schedule notification 1 hour before deadline
       final scheduledDate = assignment.deadline.subtract(const Duration(hours: 1));
       
-      // Don't schedule if the notification time is in the past
       if (scheduledDate.isBefore(DateTime.now())) {
         return null;
       }
@@ -137,7 +123,6 @@ class AssignmentNotificationService {
     }
   }
 
-  // Cancel a scheduled notification
   static Future<void> cancelNotification(int? notificationId) async {
     if (notificationId != null) {
       try {
@@ -148,18 +133,13 @@ class AssignmentNotificationService {
     }
   }
 
-  // Update notification for an assignment
   static Future<int?> updateNotification(AssignmentItem assignment) async {
-    // Cancel existing notification if any
     if (assignment.notificationId != null) {
       await cancelNotification(assignment.notificationId);
     }
-
-    // Schedule new notification
     return await scheduleNotification(assignment);
   }
 
-  // Cancel all notifications
   static Future<void> cancelAllNotifications() async {
     try {
       await _notifications.cancelAll();
@@ -168,7 +148,6 @@ class AssignmentNotificationService {
     }
   }
 
-  // Get pending notifications (for debugging)
   static Future<List<PendingNotificationRequest>> getPendingNotifications() async {
     try {
       return await _notifications.pendingNotificationRequests();
