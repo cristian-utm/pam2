@@ -39,7 +39,6 @@ class _AddEditAssignmentScreenState extends State<AddEditAssignmentScreen> {
     super.dispose();
   }
 
-  // Initialize form fields with existing data if in edit mode
   void _initializeFields() {
     if (_isEditMode) {
       final assignment = widget.assignment!;
@@ -58,7 +57,6 @@ class _AddEditAssignmentScreenState extends State<AddEditAssignmentScreen> {
     }
   }
 
-  // Get the combined deadline DateTime
   DateTime get _deadline {
     return DateTime(
       _selectedDate.year,
@@ -69,7 +67,6 @@ class _AddEditAssignmentScreenState extends State<AddEditAssignmentScreen> {
     );
   }
 
-  // Show date picker
   Future<void> _selectDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -85,7 +82,6 @@ class _AddEditAssignmentScreenState extends State<AddEditAssignmentScreen> {
     }
   }
 
-  // Show time picker
   Future<void> _selectTime() async {
     final picked = await showTimePicker(
       context: context,
@@ -99,12 +95,10 @@ class _AddEditAssignmentScreenState extends State<AddEditAssignmentScreen> {
     }
   }
 
-  // Generate unique ID for new assignments
   String _generateUniqueId() {
     return 'assignment_${DateTime.now().millisecondsSinceEpoch}';
   }
 
-  // Save assignment
   Future<void> _saveAssignment() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -115,7 +109,6 @@ class _AddEditAssignmentScreenState extends State<AddEditAssignmentScreen> {
     });
 
     try {
-      // Load existing assignments
       final existingAssignments = await XmlStorageService.loadAssignmentsFromXml();
       
       AssignmentItem newAssignment;
@@ -137,13 +130,11 @@ class _AddEditAssignmentScreenState extends State<AddEditAssignmentScreen> {
           notificationId: null, // Will be set when scheduling notification
         );
         
-        // Update in the list
         final index = existingAssignments.indexWhere((item) => item.id == oldAssignment.id);
         if (index != -1) {
           existingAssignments[index] = newAssignment;
         }
       } else {
-        // Create new assignment
         newAssignment = AssignmentItem(
           id: _generateUniqueId(),
           title: _titleController.text.trim(),
@@ -153,20 +144,16 @@ class _AddEditAssignmentScreenState extends State<AddEditAssignmentScreen> {
           isCompleted: false,
         );
         
-        // Add to the list
         existingAssignments.add(newAssignment);
       }
       
-      // Schedule notification if deadline is in the future and not completed
       int? notificationId;
       if (!newAssignment.isCompleted && _deadline.isAfter(DateTime.now())) {
         notificationId = await AssignmentNotificationService.scheduleNotification(newAssignment);
         
-        // Update assignment with notification ID
         if (notificationId != null) {
           newAssignment = newAssignment.copyWith(notificationId: notificationId);
           
-          // Update in the list again with notification ID
           if (_isEditMode) {
             final index = existingAssignments.indexWhere((item) => item.id == newAssignment.id);
             if (index != -1) {
@@ -178,7 +165,6 @@ class _AddEditAssignmentScreenState extends State<AddEditAssignmentScreen> {
         }
       }
       
-      // Save to XML
       await XmlStorageService.saveAssignmentsToXml(existingAssignments);
       
       if (mounted) {

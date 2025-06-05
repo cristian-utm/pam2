@@ -276,12 +276,10 @@ class _MainScreenState extends State<MainScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Compact header with search and controls
                 Container(
                   color: Theme.of(context).colorScheme.surface,
                   child: Column(
                     children: [
-                      // Search bar - more compact
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 8.0),
                         child: TextField(
@@ -296,7 +294,6 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                       ),
                       
-                      // Control buttons - more compact
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
                         child: Row(
@@ -382,28 +379,24 @@ class _MainScreenState extends State<MainScreen> {
                             _lastClickTime != null &&
                             now.difference(_lastClickTime!).inMilliseconds < 500;
 
-                        // Always in range selection mode
                         setState(() {
-                          _showAllAssignments = false; // Disable show all when clicking calendar
+                          _showAllAssignments = false;
                           _selectedDate = selectedDay;
                           _focusedDate = focusedDay;
                         });
 
                         if (isDoubleClick) {
-                          // Double click - select only this day
                           setState(() {
                             _rangeStart = selectedDay;
                             _rangeEnd = selectedDay;
                           });
                           _filterAssignments();
                         } else if (_rangeStart == null) {
-                          // First click - start range
                           setState(() {
                             _rangeStart = selectedDay;
                             _rangeEnd = null;
                           });
                         } else if (_rangeEnd == null) {
-                          // Second click - complete range
                           final start = _rangeStart!;
                           final end = selectedDay;
                           setState(() {
@@ -412,14 +405,12 @@ class _MainScreenState extends State<MainScreen> {
                           });
                           _filterAssignments();
                         } else {
-                          // Range already selected - start new range
                           setState(() {
                             _rangeStart = selectedDay;
                             _rangeEnd = null;
                           });
                         }
 
-                        // Update last click tracking
                         _lastClickedDay = selectedDay;
                         _lastClickTime = now;
                       },
@@ -427,7 +418,6 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                   ),
                   
-                  // Help text
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                     child: Text(
@@ -445,7 +435,6 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                 ],
                 
-                // Assignments section header
                 Container(
                   padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 8.0),
                   decoration: BoxDecoration(
@@ -478,7 +467,6 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                 ),
                 
-                // Assignments list - Enhanced for better scrolling and UX
                 Expanded(
                   child: _filteredAssignments.isEmpty
                       ? Center(
@@ -555,11 +543,9 @@ class _MainScreenState extends State<MainScreen> {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          // Header row with checkbox, title, and actions
                                           Row(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              // Custom styled checkbox
                                               Container(
                                                 margin: const EdgeInsets.only(top: 2),
                                                 child: Transform.scale(
@@ -575,7 +561,6 @@ class _MainScreenState extends State<MainScreen> {
                                                 ),
                                               ),
                                               const SizedBox(width: 8),
-                                              // Title and subject
                                               Expanded(
                                                 child: Column(
                                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -614,7 +599,6 @@ class _MainScreenState extends State<MainScreen> {
                                                   ],
                                                 ),
                                               ),
-                                              // Delete button
                                               Container(
                                                 margin: const EdgeInsets.only(left: 8),
                                                 child: IconButton(
@@ -627,7 +611,6 @@ class _MainScreenState extends State<MainScreen> {
                                               ),
                                             ],
                                         ),
-                                        // Description section
                                         if (assignment.description.isNotEmpty) ...[
                                           const SizedBox(height: 8),
                                           Container(
@@ -650,7 +633,6 @@ class _MainScreenState extends State<MainScreen> {
                                         
                                         const SizedBox(height: 8),
                                         
-                                        // Deadline section with enhanced styling
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                           decoration: BoxDecoration(
